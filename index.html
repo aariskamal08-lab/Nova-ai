@@ -1,1 +1,138 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080b14">
+<title>NOVA AI — by Aaris Kamal</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080b14;color:#eef3ff;font:16px/1.5 system-ui,Arial;min-height:100vh;display:flex;flex-direction:column}
+header{padding:18px 22px;border-bottom:1px solid #252f46;display:flex;justify-content:space-between;align-items:center;background:#0d1120}
+.brand{font-size:21px;font-weight:800;letter-spacing:1px}
+.gradient{background:linear-gradient(90deg,#a99bff,#42d9ff);color:transparent;background-clip:text}
+.status{color:#91f2ca;font-size:12px}
+main{width:min(800px,100%);margin:auto;flex:1;padding:25px 15px;display:flex;flex-direction:column}
+.welcome{text-align:center;padding:45px 8px 30px}
+.logo{margin:auto auto 18px;width:68px;height:68px;border-radius:22px;background:linear-gradient(135deg,#8b7cff,#42d9ff);color:#080b14;display:grid;place-items:center;font-size:30px;font-weight:900}
+h1{font-size:clamp(29px,6vw,42px);margin:0 0 10px}
+.sub{color:#9aa8c3}
+.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:22px 0}
+.chip{background:#121a2b;color:#dce4ff;border:1px solid #303a55;padding:10px 13px;border-radius:20px;cursor:pointer}
+#chat{display:flex;flex-direction:column;gap:14px;margin-bottom:22px}
+.msg{max-width:92%;padding:12px 15px;border-radius:15px;background:#121a2b;border:1px solid #29334b;white-space:pre-wrap;overflow-wrap:anywhere}
+.user{align-self:flex-end;background:#252044;border-color:#51458b}
+.composer{margin-top:auto;background:#111827;border:1px solid #303a55;border-radius:18px;padding:10px}
+.compose{display:flex;gap:8px;align-items:flex-end}
+textarea{flex:1;min-width:0;resize:vertical;max-height:150px;min-height:48px;background:transparent;border:0;outline:0;color:white;font:inherit;padding:12px}
+button:disabled{opacity:.5}
+#send{width:48px;height:48px;border:0;border-radius:13px;background:linear-gradient(135deg,#a99bff,#42d9ff);font-size:22px;font-weight:bold;cursor:pointer;color:#080b14}
+.hint{font-size:11px;color:#8190ac;padding:5px}
+#notice{font-size:12px;color:#ffb6a8;margin:10px 3px;overflow-wrap:anywhere}
+footer{text-align:center;color:#74819b;padding:20px;border-top:1px solid #20283a;font-size:12px}
+@media(max-width:500px){header{padding:15px}.welcome{padding-top:30px}.msg{max-width:98%}}
+</style>
+</head>
+<body>
+<header><div class="brand">NOVA <span class="gradient">AI</span></div><div class="status">● AI ASSISTANT</div></header>
+<main>
+<section class="welcome" id="welcome">
+<div class="logo">N</div>
+<h1>Hey, I'm <span class="gradient">NOVA AI</span></h1>
+<p class="sub">Your AI companion for learning, coding, ideas and everyday questions.</p>
+<div class="chips">
+<button class="chip" data-prompt="Explain artificial intelligence in simple Hinglish">✦ Explain AI</button>
+<button class="chip" data-prompt="Suggest a beginner Python project">⌘ Python project</button>
+<button class="chip" data-prompt="Help me plan my Class 11 studies">▤ Study plan</button>
+</div>
+</section>
+<section id="chat" aria-live="polite"></section>
+<div class="composer">
+<div class="compose">
+<textarea id="prompt" rows="1" placeholder="Message NOVA AI…" aria-label="Message NOVA AI"></textarea>
+<button id="send" aria-label="Send">↑</button>
+</div>
+<div class="hint">Enter to send · Shift + Enter for new line</div>
+</div>
+<div id="notice" role="status"></div>
+</main>
+<footer>NOVA AI · Created by Aaris Kamal</footer>
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const URL = 'https://fourwjsfbloldxrtdezw.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZvdXJ3anNmYmxvbGR4cnRkZXp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwODMxNjgsImV4cCI6MjEwNzY1OTE2OH0.EZdbOBZmvG82QE3BP_xGImEk96tMKYznw7cZJqZTlDk';
+const supabase = createClient(URL, KEY);
+const promptBox = document.getElementById('prompt');
+const send = document.getElementById('send');
+const chat = document.getElementById('chat');
+const notice = document.getElementById('notice');
+let busy = false;
+
+function bubble(text, who) {
+  document.getElementById('welcome').style.display = 'none';
+  const el = document.createElement('div');
+  el.className = 'msg ' + who;
+  el.textContent = text;
+  chat.appendChild(el);
+  el.scrollIntoView({behavior:'smooth',block:'nearest'});
+  return el;
+}
+
+async function ask() {
+  const message = promptBox.value.trim();
+  if (!message || busy) return;
+  promptBox.value = '';
+  bubble(message,'user');
+  const answer = bubble('Thinking…','assistant');
+  busy = true;
+  send.disabled = true;
+  notice.textContent = '';
+
+  try {
+    let {data,error} = await supabase.auth.getSession();
+    if (error) throw error;
+    if (!data.session) {
+      const signIn = await supabase.auth.signInAnonymously();
+      if (signIn.error) throw signIn.error;
+      data = await supabase.auth.getSession();
+    }
+    const token = data.data.session.access_token;
+    const res = await fetch(URL + '/functions/v1/nova-ai-brain',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'apikey':KEY,
+        'Authorization':'Bearer '+token
+      },
+      body:JSON.stringify({message})
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || result.message || 'HTTP '+res.status);
+    answer.textContent = result.reply || result.text || 'No reply received. Try again.';
+  } catch (e) {
+    answer.textContent = 'Sorry, I could not connect to NOVA AI right now.';
+    notice.textContent = 'Connection issue: '+e.message;
+    console.error(e);
+  } finally {
+    busy = false;
+    send.disabled = false;
+    promptBox.focus();
+  }
+}
+
+send.addEventListener('click',ask);
+promptBox.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask();}
+});
+document.querySelectorAll('[data-prompt]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    promptBox.value=btn.dataset.prompt;
+    ask();
+  });
+});
+</script>
+</body>
+  </html>
+
